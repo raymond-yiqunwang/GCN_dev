@@ -19,11 +19,9 @@ from cgcnn.model import CrystalGraphConvNet
 from cgcnn.data import collate_pool, get_train_val_test_loader
 from cgcnn.data import CIFData
 
-
 parser = argparse.ArgumentParser(description='Crystal Graph Convolutional Neural Networks')
-parser.add_argument('data_options', metavar='OPTIONS', nargs='+',
-                    help='dataset options, started with the path to root dir, '
-                    'then other options')
+parser.add_argument('--root', default='./data/', metavar='DATA_ROOT', 
+                    help='path to data root dir')
 parser.add_argument('--task', choices=['regression', 'classification'],
                     default='regression', help='complete a regression or '
                     'classification task (default: regression)')
@@ -81,7 +79,7 @@ def main():
     global args, best_mae_error
 
     # load dataset: (atom_fea, nbr_fea, nbr_fea_idx), target, cif_id
-    dataset = CIFData(*args.data_options)
+    dataset = CIFData(args.root)
     collate_fn = collate_pool
     train_loader, val_loader, test_loader = get_train_val_test_loader(
         dataset=dataset, collate_fn=collate_fn, batch_size=args.batch_size,
@@ -94,8 +92,8 @@ def main():
         normalizer = Normalizer(torch.zeros(2))
         normalizer.load_state_dict({'mean': 0., 'std': 1.})
     else:
-        sample_data_list = [dataset[i] for i in
-                            sample(range(len(dataset)), 1000)]
+        sample_data_list = [dataset[i] for i in \
+                            sample(range(len(dataset)), 500)]
         _, sample_target, _ = collate_pool(sample_data_list)
         normalizer = Normalizer(sample_target)
 
