@@ -246,7 +246,7 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
                       'MAE {mae_errors.val:.3f} ({mae_errors.avg:.3f})'.format(
                        epoch, i, len(train_loader), batch_time=batch_time,
                        data_time=data_time, loss=losses, mae_errors=mae_errors)
-                      )
+                      , flush=True)
             else:
                 print('Epoch: [{0}][{1}/{2}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -261,7 +261,7 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
                        data_time=data_time, loss=losses, accu=accuracies,
                        prec=precisions, recall=recalls, f1=fscores,
                        auc=auc_scores)
-                      )
+                      , flush=True)
 
 
 def validate(val_loader, model, criterion, normalizer, test=False):
@@ -333,7 +333,7 @@ def validate(val_loader, model, criterion, normalizer, test=False):
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                       'MAE {mae_errors.val:.3f} ({mae_errors.avg:.3f})'.format(
                        i, len(val_loader), batch_time=batch_time, loss=losses,
-                       mae_errors=mae_errors))
+                       mae_errors=mae_errors), flush=True)
             else:
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -345,7 +345,7 @@ def validate(val_loader, model, criterion, normalizer, test=False):
                       'AUC {auc.val:.3f} ({auc.avg:.3f})'.format(
                        i, len(val_loader), batch_time=batch_time, loss=losses,
                        accu=accuracies, prec=precisions, recall=recalls,
-                       f1=fscores, auc=auc_scores))
+                       f1=fscores, auc=auc_scores), flush=True)
 
     if test:
         star_label = '**'
@@ -359,11 +359,11 @@ def validate(val_loader, model, criterion, normalizer, test=False):
         star_label = '*'
     if args.task == 'regression':
         print(' {star} MAE {mae_errors.avg:.3f}'.format(star=star_label,
-                                                        mae_errors=mae_errors))
+                                                        mae_errors=mae_errors), flush=True)
         return mae_errors.avg
     else:
         print(' {star} AUC {auc.avg:.3f}'.format(star=star_label,
-                                                 auc=auc_scores))
+                                                 auc=auc_scores), flush=True)
         return auc_scores.avg
 
 
