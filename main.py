@@ -29,8 +29,8 @@ parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
 parser.add_argument('--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 0)')
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
-                    help='number of total epochs to run (default: 100)')
+parser.add_argument('--epochs', default=50, type=int, metavar='N',
+                    help='number of total epochs to run (default: 50)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--batch-size', default=128, type=int,
@@ -434,9 +434,12 @@ class AverageMeter(object):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
+    out_dir = './checkpoints/'
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+    torch.save(state, out_dir+filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(out_dir+filename, 'model_best.pth.tar')
 
 
 def adjust_learning_rate(optimizer, epoch, k):
