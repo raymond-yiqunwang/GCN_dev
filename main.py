@@ -29,13 +29,13 @@ parser.add_argument('--task', choices=['regression', 'classification'],
                     'classification task (default: regression)')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
-parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
+parser.add_argument('--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 0)')
 parser.add_argument('--epochs', default=30, type=int, metavar='N',
                     help='number of total epochs to run (default: 30)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
+parser.add_argument('--batch-size', default=64, type=int,
                     metavar='N', help='mini-batch size (default: 64)')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
@@ -51,13 +51,12 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--train-size', default=None, type=int, metavar='N',
-                    help='number of training data to be loaded (default none)')
-parser.add_argument('--val-size', default=1000, type=int, metavar='N',
-                    help='number of validation data to be loaded (default '
-                    '1000)')
-parser.add_argument('--test-size', default=1000, type=int, metavar='N',
-                    help='number of test data to be loaded (default 1000)')
+parser.add_argument('--train-ratio', default=0.7, type=float, metavar='n/N',
+                    help='ratio of training data (default: 0.7)')
+parser.add_argument('--val-ratio', default=0.15, type=float, metavar='n/N',
+                    help='ratio of validation data (default: 0.15)')
+parser.add_argument('--test-ratio', default=0.15, type=float, metavar='n/N',
+                    help='ratio of test data (default: 0.15)')
 parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
                     help='choose an optimizer, SGD or Adam, (default: SGD)')
 parser.add_argument('--atom-fea-len', default=64, type=int, metavar='N',
@@ -81,13 +80,13 @@ else:
 def main():
     global args, best_mae_error
 
-    # load data
+    # load dataset: (atom_fea, nbr_fea, nbr_fea_idx), target, cif_id
     dataset = CIFData(*args.data_options)
     collate_fn = collate_pool
     train_loader, val_loader, test_loader = get_train_val_test_loader(
         dataset=dataset, collate_fn=collate_fn, batch_size=args.batch_size,
-        train_size=args.train_size, num_workers=args.workers,
-        val_size=args.val_size, test_size=args.test_size,
+        train_ratio=args.train_ratio, num_workers=args.workers,
+        val_ratio=args.val_ratio, test_ratio=args.test_ratio,
         pin_memory=args.cuda, return_test=True)
 
     # obtain target value normalizer
@@ -95,13 +94,8 @@ def main():
         normalizer = Normalizer(torch.zeros(2))
         normalizer.load_state_dict({'mean': 0., 'std': 1.})
     else:
-        if len(dataset) < 500:
-            warnings.warn('Dataset has less than 500 data points. '
-                          'Lower accuracy is expected. ')
-            sample_data_list = [dataset[i] for i in range(len(dataset))]
-        else:
-            sample_data_list = [dataset[i] for i in
-                                sample(range(len(dataset)), 500)]
+        sample_data_list = [dataset[i] for i in
+                            sample(range(len(dataset)), 1000)]
         _, sample_target, _ = collate_pool(sample_data_list)
         normalizer = Normalizer(sample_target)
 
@@ -209,44 +203,30 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        if args.cuda:
-            input_var = (Variable(input[0].cuda()),
-                         Variable(input[1].cuda()),
-                         input[2].cuda(),
-                         [crys_idx.cuda() for crys_idx in input[3]])
-        else:
-            input_var = (Variable(input[0]),
-                         Variable(input[1]),
-                         input[2],
-                         input[3])
         # normalize target
         if args.task == 'regression':
             target_normed = normalizer.norm(target)
         else:
             target_normed = target.view(-1).long()
-        if args.cuda:
-            target_var = Variable(target_normed.cuda())
-        else:
-            target_var = Variable(target_normed)
 
         # compute output
-        output = model(*input_var)
-        loss = criterion(output, target_var)
+        output = model(input[0], input[1], input[2], input[3])
+        loss = criterion(output, target_normed)
 
         # measure accuracy and record loss
         if args.task == 'regression':
-            mae_error = mae(normalizer.denorm(output.data.cpu()), target)
+            mae_error = mae(normalizer.denorm(output), target)
             losses.update(loss.item(), target.size(0))
-            mae_errors.update(mae_error, target.size(0))
+            mae_errors.update(mae_error.item(), target.size(0))
         else:
             accuracy, precision, recall, fscore, auc_score =\
-                class_eval(output.data.cpu(), target)
+                class_eval(output, target)
             losses.update(loss.item(), target.size(0))
-            accuracies.update(accuracy, target.size(0))
-            precisions.update(precision, target.size(0))
-            recalls.update(recall, target.size(0))
-            fscores.update(fscore, target.size(0))
-            auc_scores.update(auc_score, target.size(0))
+            accuracies.update(accuracy.item(), target.size(0))
+            precisions.update(precision.item(), target.size(0))
+            recalls.update(recall.item(), target.size(0))
+            fscores.update(fscore.item(), target.size(0))
+            auc_scores.update(auc_score.item(), target.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -305,52 +285,37 @@ def validate(val_loader, model, criterion, normalizer, test=False):
 
     end = time.time()
     for i, (input, target, batch_cif_ids) in enumerate(val_loader):
-        if args.cuda:
-            input_var = (Variable(input[0].cuda(), volatile=True),
-                         Variable(input[1].cuda(), volatile=True),
-                         input[2].cuda(),
-                         [crys_idx.cuda() for crys_idx in input[3]])
-        else:
-            input_var = (Variable(input[0], volatile=True),
-                         Variable(input[1], volatile=True),
-                         input[2],
-                         input[3])
         if args.task == 'regression':
             target_normed = normalizer.norm(target)
         else:
             target_normed = target.view(-1).long()
-        if args.cuda:
-            target_var = Variable(target_normed.cuda(),
-                                  volatile=True)
-        else:
-            target_var = Variable(target_normed, volatile=True)
-
+        
         # compute output
-        output = model(*input_var)
-        loss = criterion(output, target_var)
+        output = model(input[0], input[1], input[2], input[3])
+        loss = criterion(output, target_normed)
 
         # measure accuracy and record loss
         if args.task == 'regression':
-            mae_error = mae(normalizer.denorm(output.data.cpu()), target)
+            mae_error = mae(normalizer.denorm(output), target)
             losses.update(loss.item(), target.size(0))
-            mae_errors.update(mae_error, target.size(0))
+            mae_errors.update(mae_error.item(), target.size(0))
             if test:
-                test_pred = normalizer.denorm(output.data.cpu())
+                test_pred = normalizer.denorm(output)
                 test_target = target
                 test_preds += test_pred.view(-1).tolist()
                 test_targets += test_target.view(-1).tolist()
                 test_cif_ids += batch_cif_ids
         else:
             accuracy, precision, recall, fscore, auc_score =\
-                class_eval(output.data.cpu(), target)
+                class_eval(output, target)
             losses.update(loss.item(), target.size(0))
-            accuracies.update(accuracy, target.size(0))
-            precisions.update(precision, target.size(0))
-            recalls.update(recall, target.size(0))
-            fscores.update(fscore, target.size(0))
-            auc_scores.update(auc_score, target.size(0))
+            accuracies.update(accuracy.item(), target.size(0))
+            precisions.update(precision.item(), target.size(0))
+            recalls.update(recall.item(), target.size(0))
+            fscores.update(fscore.item(), target.size(0))
+            auc_scores.update(auc_score.item(), target.size(0))
             if test:
-                test_pred = torch.exp(output.data.cpu())
+                test_pred = torch.exp(output)
                 test_target = target
                 assert test_pred.shape[1] == 2
                 test_preds += test_pred[:, 1].tolist()

@@ -16,8 +16,8 @@ from pymatgen.core.structure import Structure
 
 
 def get_train_val_test_loader(dataset, collate_fn=default_collate,
-                              batch_size=64, train_size=None,
-                              val_size=1000, test_size=1000, return_test=False,
+                              batch_size=64, train_ratio=0.7,
+                              val_ratio=0.15, test_ratio=0.15, return_test=False,
                               num_workers=1, pin_memory=False):
     """
     Utility function for dividing a dataset to train, val, test datasets.
@@ -49,17 +49,16 @@ def get_train_val_test_loader(dataset, collate_fn=default_collate,
         return_test=True.
     """
     total_size = len(dataset)
-    if train_size is None:
-        assert val_size + test_size < total_size
-        print('[Warning] train_size is None, using all training data.')
-    else:
-        assert train_size + val_size + test_size <= total_size
     indices = list(range(total_size))
-    train_sampler = SubsetRandomSampler(indices[:train_size])
+    random.shuffle(indices)
+    train_split = int(np.floor(total_size * train_ratio))
+    train_sampler = SubsetRandomSampler(indices[:train_split])
+    val_split = train_split + int(np.floor(total_size * val_ratio))
     val_sampler = SubsetRandomSampler(
-                    indices[-(val_size+test_size):-test_size])
+                    indices[train_split:val_split])
     if return_test:
-        test_sampler = SubsetRandomSampler(indices[-test_size:])
+        test_sampler = SubsetRandomSampler(indices[val_split:])
+
     train_loader = DataLoader(dataset, batch_size=batch_size,
                               sampler=train_sampler,
                               num_workers=num_workers,
