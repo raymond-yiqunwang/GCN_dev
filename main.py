@@ -78,6 +78,7 @@ if args.task == 'regression':
 else:
     best_mae_error = 0.
 
+print('cuda: {}'.format(args.cuda))
 
 def main():
     global args, best_mae_error
