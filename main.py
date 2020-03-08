@@ -108,6 +108,11 @@ def main():
                                 n_h=args.n_h,
                                 classification=True if args.task ==
                                 'classification' else False)
+    # pring number of trainable model parameters
+    trainable_params = sum(p.numel() for p in model.parameters()
+                           if p.requires_grad)
+    print('=> number of trainable model parameters: {:d}'.format(trainable_params))
+
     if args.cuda:
         model.cuda()
 
@@ -175,7 +180,7 @@ def main():
 
     # test best model
     print('---------Evaluate Model on Test Set---------------')
-    best_checkpoint = torch.load('model_best.pth.tar')
+    best_checkpoint = load_best_model()
     model.load_state_dict(best_checkpoint['state_dict'])
     validate(test_loader, model, criterion, normalizer, test=True)
 
@@ -439,7 +444,15 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         os.mkdir(out_dir)
     torch.save(state, out_dir+filename)
     if is_best:
-        shutil.copyfile(out_dir+filename, 'model_best.pth.tar')
+        shutil.copyfile(out_dir+filename, out_dir+'model_best.pth.tar')
+
+
+def load_best_model():
+    model_file = './checkpoints/model_best.pth.tar'
+    if not os.path.isfile(model_file):
+        print('{} checkpoint file does not exist, exiting...'.format(model_file))
+        sys.exit(1)
+    return torch.load(model_file)
 
 
 def adjust_learning_rate(optimizer, epoch, k):
