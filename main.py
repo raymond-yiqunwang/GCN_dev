@@ -36,7 +36,7 @@ parser.add_argument('--epochs', default=30, type=int, metavar='N',
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=64, type=int,
-                    metavar='N', help='mini-batch size (default: 256)')
+                    metavar='N', help='mini-batch size (default: 64)')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
                     '0.01)')
@@ -77,8 +77,6 @@ if args.task == 'regression':
     best_mae_error = 1e10
 else:
     best_mae_error = 0.
-
-print('cuda: {}'.format(args.cuda))
 
 def main():
     global args, best_mae_error
