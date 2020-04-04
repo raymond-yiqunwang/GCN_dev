@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import MultiStepLR
+from torch.utils.tensorboard import SummaryWriter
 
 from cgcnn.model import CrystalGraphConvNet
 from cgcnn.data import collate_pool, get_train_val_test_loader
@@ -22,6 +23,9 @@ from cgcnn.data import CIFData
 parser = argparse.ArgumentParser(description='Crystal Graph Convolutional Neural Networks')
 parser.add_argument('--root', default='./data/', metavar='DATA_ROOT', 
                     help='path to data root dir')
+parser.add_argument('--target', default='band_gap', metavar='TARGET_PROPERTY',
+                    help="target property ('band_gap', 'energy_per_atom', \
+                                           'formation_energy_per_atom')")
 parser.add_argument('--task', choices=['regression', 'classification'],
                     default='regression', help='complete a regression or '
                     'classification task (default: regression)')
@@ -49,19 +53,19 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--train-ratio', default=0.7, type=float, metavar='n/N',
-                    help='ratio of training data (default: 0.7)')
-parser.add_argument('--val-ratio', default=0.15, type=float, metavar='n/N',
-                    help='ratio of validation data (default: 0.15)')
-parser.add_argument('--test-ratio', default=0.15, type=float, metavar='n/N',
-                    help='ratio of test data (default: 0.15)')
+parser.add_argument('--train-ratio', default=0.8, type=float, metavar='n/N',
+                    help='ratio of training data (default: 0.8)')
+parser.add_argument('--val-ratio', default=0.20, type=float, metavar='n/N',
+                    help='ratio of validation data (default: 0.20)')
+parser.add_argument('--test-ratio', default=0.00, type=float, metavar='n/N',
+                    help='ratio of test data (default: 0.00)')
 parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
                     help='choose an optimizer, SGD or Adam, (default: SGD)')
 parser.add_argument('--atom-fea-len', default=64, type=int, metavar='N',
                     help='number of hidden atom features in conv layers')
-parser.add_argument('--h-fea-len', default=128, type=int, metavar='N',
+parser.add_argument('--h-fea-len', default=64, type=int, metavar='N',
                     help='number of hidden features after pooling')
-parser.add_argument('--n-conv', default=3, type=int, metavar='N',
+parser.add_argument('--n-conv', default=4, type=int, metavar='N',
                     help='number of conv layers')
 parser.add_argument('--n-h', default=1, type=int, metavar='N',
                     help='number of hidden layers after pooling')
@@ -79,7 +83,7 @@ def main():
     global args, best_mae_error
 
     # load dataset: (atom_fea, nbr_fea, nbr_fea_idx), target, cif_id
-    dataset = CIFData(args.root)
+    dataset = CIFData(args.root+args.target)
     collate_fn = collate_pool
     train_loader, val_loader, test_loader = get_train_val_test_loader(
         dataset=dataset, collate_fn=collate_fn, batch_size=args.batch_size,
@@ -146,15 +150,24 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
+    # TensorBoard writer
+    summary_root = './runs/'
+    if not os.path.exists(summary_root):
+        os.mkdir(summary_root)
+    summary_file = summary_root + args.target
+    if os.path.exists(summary_file):
+        shutil.rmtree(summary_file)
+    writer = SummaryWriter(summary_file)
+
     scheduler = MultiStepLR(optimizer, milestones=args.lr_milestones,
                             gamma=0.1)
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, args.start_epoch+args.epochs):
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, normalizer)
+        train(train_loader, model, criterion, optimizer, epoch, normalizer, writer)
 
         # evaluate on validation set
-        mae_error = validate(val_loader, model, criterion, normalizer)
+        mae_error = validate(val_loader, model, criterion, epoch, normalizer, writer)
 
         if mae_error != mae_error:
             print('Exit due to NaN')
@@ -178,14 +191,8 @@ def main():
             'args': vars(args)
         }, is_best)
 
-    # test best model
-    print('---------Evaluate Model on Test Set---------------')
-    best_checkpoint = load_best_model()
-    model.load_state_dict(best_checkpoint['state_dict'])
-    validate(test_loader, model, criterion, normalizer, test=True)
 
-
-def train(train_loader, model, criterion, optimizer, epoch, normalizer):
+def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -202,6 +209,7 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
     model.train()
 
     end = time.time()
+    running_loss = 0.0
     for i, (input, target, _) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
@@ -240,6 +248,8 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        # write to TensorBoard
+        running_loss += loss.item()
         if i % args.print_freq == 0:
             if args.task == 'regression':
                 print('Epoch: [{0}][{1}/{2}]\t'
@@ -250,6 +260,10 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
                        epoch, i, len(train_loader), batch_time=batch_time,
                        data_time=data_time, loss=losses, mae_errors=mae_errors)
                       , flush=True)
+                writer.add_scalar('training loss',
+                                running_loss / args.print_freq,
+                                epoch * len(train_loader) + i)
+                running_loss = 0.0
             else:
                 print('Epoch: [{0}][{1}/{2}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -267,7 +281,7 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer):
                       , flush=True)
 
 
-def validate(val_loader, model, criterion, normalizer, test=False):
+def validate(val_loader, model, criterion, epoch, normalizer, writer, test=False):
     batch_time = AverageMeter()
     losses = AverageMeter()
     if args.task == 'regression':
@@ -286,80 +300,78 @@ def validate(val_loader, model, criterion, normalizer, test=False):
     # switch to evaluate mode
     model.eval()
 
-    end = time.time()
-    for i, (input, target, batch_cif_ids) in enumerate(val_loader):
-        if args.task == 'regression':
-            target_normed = normalizer.norm(target)
-        else:
-            target_normed = target.view(-1).long()
-        
-        # compute output
-        output = model(input[0], input[1], input[2], input[3])
-        loss = criterion(output, target_normed)
-
-        # measure accuracy and record loss
-        if args.task == 'regression':
-            mae_error = mae(normalizer.denorm(output), target)
-            losses.update(loss.item(), target.size(0))
-            mae_errors.update(mae_error.item(), target.size(0))
-            if test:
-                test_pred = normalizer.denorm(output)
-                test_target = target
-                test_preds += test_pred.view(-1).tolist()
-                test_targets += test_target.view(-1).tolist()
-                test_cif_ids += batch_cif_ids
-        else:
-            accuracy, precision, recall, fscore, auc_score =\
-                class_eval(output, target)
-            losses.update(loss.item(), target.size(0))
-            accuracies.update(accuracy.item(), target.size(0))
-            precisions.update(precision.item(), target.size(0))
-            recalls.update(recall.item(), target.size(0))
-            fscores.update(fscore.item(), target.size(0))
-            auc_scores.update(auc_score.item(), target.size(0))
-            if test:
-                test_pred = torch.exp(output)
-                test_target = target
-                assert test_pred.shape[1] == 2
-                test_preds += test_pred[:, 1].tolist()
-                test_targets += test_target.view(-1).tolist()
-                test_cif_ids += batch_cif_ids
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
+    with torch.no_grad():
         end = time.time()
-
-        if i % args.print_freq == 0:
+        running_loss = 0.0
+        for i, (input, target, batch_cif_ids) in enumerate(val_loader):
             if args.task == 'regression':
-                print('Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'MAE {mae_errors.val:.3f} ({mae_errors.avg:.3f})'.format(
-                       i, len(val_loader), batch_time=batch_time, loss=losses,
-                       mae_errors=mae_errors), flush=True)
+                target_normed = normalizer.norm(target)
             else:
-                print('Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Accu {accu.val:.3f} ({accu.avg:.3f})\t'
-                      'Precision {prec.val:.3f} ({prec.avg:.3f})\t'
-                      'Recall {recall.val:.3f} ({recall.avg:.3f})\t'
-                      'F1 {f1.val:.3f} ({f1.avg:.3f})\t'
-                      'AUC {auc.val:.3f} ({auc.avg:.3f})'.format(
-                       i, len(val_loader), batch_time=batch_time, loss=losses,
-                       accu=accuracies, prec=precisions, recall=recalls,
-                       f1=fscores, auc=auc_scores), flush=True)
-
-    if test:
-        star_label = '**'
-        import csv
-        with open('test_results.csv', 'w') as f:
-            writer = csv.writer(f)
-            for cif_id, target, pred in zip(test_cif_ids, test_targets,
-                                            test_preds):
-                writer.writerow((cif_id, target, pred))
-    else:
-        star_label = '*'
+                target_normed = target.view(-1).long()
+            
+            # compute output
+            output = model(input[0], input[1], input[2], input[3])
+            loss = criterion(output, target_normed)
+    
+            # measure accuracy and record loss
+            if args.task == 'regression':
+                mae_error = mae(normalizer.denorm(output), target)
+                losses.update(loss.item(), target.size(0))
+                mae_errors.update(mae_error.item(), target.size(0))
+                if test:
+                    test_pred = normalizer.denorm(output)
+                    test_target = target
+                    test_preds += test_pred.view(-1).tolist()
+                    test_targets += test_target.view(-1).tolist()
+                    test_cif_ids += batch_cif_ids
+            else:
+                accuracy, precision, recall, fscore, auc_score =\
+                    class_eval(output, target)
+                losses.update(loss.item(), target.size(0))
+                accuracies.update(accuracy.item(), target.size(0))
+                precisions.update(precision.item(), target.size(0))
+                recalls.update(recall.item(), target.size(0))
+                fscores.update(fscore.item(), target.size(0))
+                auc_scores.update(auc_score.item(), target.size(0))
+                if test:
+                    test_pred = torch.exp(output)
+                    test_target = target
+                    assert test_pred.shape[1] == 2
+                    test_preds += test_pred[:, 1].tolist()
+                    test_targets += test_target.view(-1).tolist()
+                    test_cif_ids += batch_cif_ids
+    
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+    
+            # write to TensorBoard
+            running_loss += loss.item()
+            if i % args.print_freq == 0:
+                if args.task == 'regression':
+                    print('Test: [{0}/{1}]\t'
+                          'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                          'MAE {mae_errors.val:.3f} ({mae_errors.avg:.3f})'.format(
+                           i, len(val_loader), batch_time=batch_time, loss=losses,
+                           mae_errors=mae_errors), flush=True)
+                    writer.add_scalar('validation loss',
+                                    running_loss / args.print_freq,
+                                    epoch * len(val_loader) + i)
+                    running_loss = 0.0
+                else:
+                    print('Test: [{0}/{1}]\t'
+                          'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                          'Accu {accu.val:.3f} ({accu.avg:.3f})\t'
+                          'Precision {prec.val:.3f} ({prec.avg:.3f})\t'
+                          'Recall {recall.val:.3f} ({recall.avg:.3f})\t'
+                          'F1 {f1.val:.3f} ({f1.avg:.3f})\t'
+                          'AUC {auc.val:.3f} ({auc.avg:.3f})'.format(
+                           i, len(val_loader), batch_time=batch_time, loss=losses,
+                           accu=accuracies, prec=precisions, recall=recalls,
+                           f1=fscores, auc=auc_scores), flush=True)
+ 
     if args.task == 'regression':
         print(' {star} MAE {mae_errors.avg:.3f}'.format(star=star_label,
                                                         mae_errors=mae_errors), flush=True)
@@ -455,13 +467,7 @@ def load_best_model():
     return torch.load(model_file)
 
 
-def adjust_learning_rate(optimizer, epoch, k):
-    """Sets the learning rate to the initial LR decayed by 10 every k epochs"""
-    assert type(k) is int
-    lr = args.lr * (0.1 ** (epoch // k))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-
 if __name__ == '__main__':
     main()
+
+

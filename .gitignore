@@ -1,5 +1,6 @@
 data/
-gen_data/
+gen_data/data_raw/
 __pycache__/
 */__pycache__/
 checkpoints/
+runs/
