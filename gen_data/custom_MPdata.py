@@ -134,7 +134,7 @@ def customize_data(data_raw):
     # get rid of extreme volumes
     if True:
         data_custom = data_custom[data_custom['volume'] > 100]
-        data_custom = data_custom[data_custom['volume'] < 800]
+        data_custom = data_custom[data_custom['volume'] < 1500]
 
     # get rid of rare elements
     if True:

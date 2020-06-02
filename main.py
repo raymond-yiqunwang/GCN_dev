@@ -31,14 +31,14 @@ parser.add_argument('--task', choices=['regression', 'classification'],
                     'classification task (default: regression)')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
-parser.add_argument('--workers', default=0, type=int, metavar='N',
-                    help='number of data loading workers (default: 0)')
-parser.add_argument('--epochs', default=50, type=int, metavar='N',
-                    help='number of total epochs to run (default: 50)')
+parser.add_argument('--workers', default=4, type=int, metavar='N',
+                    help='number of data loading workers (default: 4)')
+parser.add_argument('--epochs', default=300, type=int, metavar='N',
+                    help='number of total epochs to run (default: 300)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--batch-size', default=128, type=int,
-                    metavar='N', help='mini-batch size (default: 64)')
+                    metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
                     '0.01)')
@@ -63,7 +63,7 @@ parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
                     help='choose an optimizer, SGD or Adam, (default: SGD)')
 parser.add_argument('--atom-fea-len', default=64, type=int, metavar='N',
                     help='number of hidden atom features in conv layers')
-parser.add_argument('--h-fea-len', default=64, type=int, metavar='N',
+parser.add_argument('--h-fea-len', default=128, type=int, metavar='N',
                     help='number of hidden features after pooling')
 parser.add_argument('--n-conv', default=4, type=int, metavar='N',
                     help='number of conv layers')
@@ -189,7 +189,7 @@ def main():
             'optimizer': optimizer.state_dict(),
             'normalizer': normalizer.state_dict(),
             'args': vars(args)
-        }, is_best)
+        }, args.target, is_best)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
@@ -373,12 +373,10 @@ def validate(val_loader, model, criterion, epoch, normalizer, writer, test=False
                            f1=fscores, auc=auc_scores), flush=True)
  
     if args.task == 'regression':
-        print(' {star} MAE {mae_errors.avg:.3f}'.format(star=star_label,
-                                                        mae_errors=mae_errors), flush=True)
+        print(' * MAE {mae_errors.avg:.3f}'.format(mae_errors=mae_errors), flush=True)
         return mae_errors.avg
     else:
-        print(' {star} AUC {auc.avg:.3f}'.format(star=star_label,
-                                                 auc=auc_scores), flush=True)
+        print(' * AUC {auc.avg:.3f}'.format(auc=auc_scores), flush=True)
         return auc_scores.avg
 
 
@@ -450,21 +448,17 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    out_dir = './checkpoints/'
-    if not os.path.exists(out_dir):
-        os.mkdir(out_dir)
-    torch.save(state, out_dir+filename)
+def save_checkpoint(state, target, is_best):
+    out_root = './checkpoints/'
+    if not os.path.exists(out_root):
+        os.mkdir(out_root)
+    out_dir = out_root + target
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
+    os.mkdir(out_dir)
+    torch.save(state, out_dir+'/checkpoint.pth.tar')
     if is_best:
-        shutil.copyfile(out_dir+filename, out_dir+'model_best.pth.tar')
-
-
-def load_best_model():
-    model_file = './checkpoints/model_best.pth.tar'
-    if not os.path.isfile(model_file):
-        print('{} checkpoint file does not exist, exiting...'.format(model_file))
-        sys.exit(1)
-    return torch.load(model_file)
+        shutil.copyfile(out_dir+'/checkpoint.pth.tar', out_dir+'/model_best.pth.tar')
 
 
 if __name__ == '__main__':

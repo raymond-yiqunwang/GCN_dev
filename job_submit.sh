@@ -1,7 +1,7 @@
 #!/bin/bash
 
 TARGET="energy_per_atom"
-RESUME="pre-trained/final-energy-per-atom.pth.tar"
+#RESUME="pre-trained/final-energy-per-atom.pth.tar"
 
 #TARGET="formation_energy_per_atom"
 #RESUME="pre-trained/formation-energy-per-atom.pth.tar"
