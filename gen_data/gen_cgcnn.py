@@ -16,10 +16,14 @@ def main():
     # read customized data
     MP_data = pd.read_csv(filename, sep=';', header=0, index_col=None)
     
+    # add MIT column
+    MP_data['MIT'] = (MP_data['band_gap'] > 1E-3).astype(float)
+    
     # target property
-    target_list = ['band_gap', 'energy_per_atom', 'formation_energy_per_atom']
+    target_list = ['band_gap', 'energy_per_atom', 'formation_energy_per_atom', 'MIT']
 
-    root_dir = "../data/"
+    #root_dir = "../data/"
+    root_dir = "../test_data/"
     if os.path.exists(root_dir):
         _ = input("Attention, the existing data dir will be deleted and regenerated.. \
                   \n>> Hit Enter to continue, Ctrl+c to terminate..")

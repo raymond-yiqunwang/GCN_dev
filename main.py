@@ -17,34 +17,33 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.tensorboard import SummaryWriter
 
 from cgcnn.model import CrystalGraphConvNet
-from cgcnn.data import collate_pool, get_train_val_test_loader
-from cgcnn.data import CIFData
+from cgcnn.data import CIFData, collate_pool, get_train_val_test_loader
 
 parser = argparse.ArgumentParser(description='Crystal Graph Convolutional Neural Networks')
 parser.add_argument('--root', default='./data/', metavar='DATA_ROOT', 
                     help='path to data root dir')
-parser.add_argument('--target', default='band_gap', metavar='TARGET_PROPERTY',
-                    help="target property ('band_gap', 'energy_per_atom', \
+parser.add_argument('--target', default='MIT', metavar='TARGET_PROPERTY',
+                    help="target property ('MIT', 'band_gap', 'energy_per_atom', \
                                            'formation_energy_per_atom')")
 parser.add_argument('--task', choices=['regression', 'classification'],
-                    default='regression', help='complete a regression or '
-                    'classification task (default: regression)')
+                    default='classification', help='complete a regression or '
+                    'classification task (default: classification)')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
 parser.add_argument('--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=300, type=int, metavar='N',
-                    help='number of total epochs to run (default: 300)')
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
+                    help='number of total epochs to run (default: 150)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--batch-size', default=128, type=int,
+parser.add_argument('--batch-size', default=64, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
                     '0.01)')
-parser.add_argument('--lr-milestones', default=[100], nargs='+', type=int,
+parser.add_argument('--lr-milestones', default=[30, 60], nargs='+', type=int,
                     metavar='N', help='milestones for scheduler (default: '
-                    '[100])')
+                    '[30, 60])')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=0, type=float,
@@ -53,19 +52,19 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--train-ratio', default=0.8, type=float, metavar='n/N',
-                    help='ratio of training data (default: 0.8)')
-parser.add_argument('--val-ratio', default=0.20, type=float, metavar='n/N',
-                    help='ratio of validation data (default: 0.20)')
-parser.add_argument('--test-ratio', default=0.00, type=float, metavar='n/N',
-                    help='ratio of test data (default: 0.00)')
+parser.add_argument('--train-ratio', default=0.7, type=float, metavar='n/N',
+                    help='ratio of training data (default: 0.7)')
+parser.add_argument('--val-ratio', default=0.15, type=float, metavar='n/N',
+                    help='ratio of validation data (default: 0.15)')
+parser.add_argument('--test-ratio', default=0.15, type=float, metavar='n/N',
+                    help='ratio of test data (default: 0.15)')
 parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
                     help='choose an optimizer, SGD or Adam, (default: SGD)')
 parser.add_argument('--atom-fea-len', default=64, type=int, metavar='N',
                     help='number of hidden atom features in conv layers')
 parser.add_argument('--h-fea-len', default=128, type=int, metavar='N',
                     help='number of hidden features after pooling')
-parser.add_argument('--n-conv', default=4, type=int, metavar='N',
+parser.add_argument('--n-conv', default=3, type=int, metavar='N',
                     help='number of conv layers')
 parser.add_argument('--n-h', default=1, type=int, metavar='N',
                     help='number of hidden layers after pooling')
@@ -169,10 +168,6 @@ def main():
         # evaluate on validation set
         mae_error = validate(val_loader, model, criterion, epoch, normalizer, writer)
 
-        if mae_error != mae_error:
-            print('Exit due to NaN')
-            sys.exit(1)
-
         scheduler.step()
 
         # remember the best mae_eror and save checkpoint
@@ -210,7 +205,7 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
 
     end = time.time()
     running_loss = 0.0
-    for i, (input, target, _) in enumerate(train_loader):
+    for i, (features, target, _) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -221,7 +216,7 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
             target_normed = target.view(-1).long()
 
         # compute output
-        output = model(input[0], input[1], input[2], input[3])
+        output = model(features[0], features[1], features[2], features[3])
         loss = criterion(output, target_normed)
 
         # measure accuracy and record loss
@@ -260,10 +255,6 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
                        epoch, i, len(train_loader), batch_time=batch_time,
                        data_time=data_time, loss=losses, mae_errors=mae_errors)
                       , flush=True)
-                writer.add_scalar('training loss',
-                                running_loss / args.print_freq,
-                                epoch * len(train_loader) + i)
-                running_loss = 0.0
             else:
                 print('Epoch: [{0}][{1}/{2}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -279,7 +270,11 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
                        prec=precisions, recall=recalls, f1=fscores,
                        auc=auc_scores)
                       , flush=True)
-
+            writer.add_scalar('training loss',
+                            running_loss / args.print_freq,
+                            epoch * len(train_loader) + i)
+            running_loss = 0.0
+    
 
 def validate(val_loader, model, criterion, epoch, normalizer, writer, test=False):
     batch_time = AverageMeter()
@@ -303,14 +298,14 @@ def validate(val_loader, model, criterion, epoch, normalizer, writer, test=False
     with torch.no_grad():
         end = time.time()
         running_loss = 0.0
-        for i, (input, target, batch_cif_ids) in enumerate(val_loader):
+        for i, (features, target, batch_cif_ids) in enumerate(val_loader):
             if args.task == 'regression':
                 target_normed = normalizer.norm(target)
             else:
                 target_normed = target.view(-1).long()
             
             # compute output
-            output = model(input[0], input[1], input[2], input[3])
+            output = model(features[0], features[1], features[2], features[3])
             loss = criterion(output, target_normed)
     
             # measure accuracy and record loss
@@ -355,10 +350,6 @@ def validate(val_loader, model, criterion, epoch, normalizer, writer, test=False
                           'MAE {mae_errors.val:.3f} ({mae_errors.avg:.3f})'.format(
                            i, len(val_loader), batch_time=batch_time, loss=losses,
                            mae_errors=mae_errors), flush=True)
-                    writer.add_scalar('validation loss',
-                                    running_loss / args.print_freq,
-                                    epoch * len(val_loader) + i)
-                    running_loss = 0.0
                 else:
                     print('Test: [{0}/{1}]\t'
                           'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -371,6 +362,10 @@ def validate(val_loader, model, criterion, epoch, normalizer, writer, test=False
                            i, len(val_loader), batch_time=batch_time, loss=losses,
                            accu=accuracies, prec=precisions, recall=recalls,
                            f1=fscores, auc=auc_scores), flush=True)
+                writer.add_scalar('validation loss',
+                                running_loss / args.print_freq,
+                                epoch * len(val_loader) + i)
+                running_loss = 0.0
  
     if args.task == 'regression':
         print(' * MAE {mae_errors.avg:.3f}'.format(mae_errors=mae_errors), flush=True)
@@ -416,8 +411,8 @@ def mae(prediction, target):
 
 
 def class_eval(prediction, target):
-    prediction = np.exp(prediction.numpy())
-    target = target.numpy()
+    prediction = np.exp(prediction.detach().numpy())
+    target = target.detach().numpy()
     pred_label = np.argmax(prediction, axis=1)
     target_label = np.squeeze(target)
     if prediction.shape[1] == 2:
@@ -453,9 +448,8 @@ def save_checkpoint(state, target, is_best):
     if not os.path.exists(out_root):
         os.mkdir(out_root)
     out_dir = out_root + target
-    if os.path.exists(out_dir):
-        shutil.rmtree(out_dir)
-    os.mkdir(out_dir)
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
     torch.save(state, out_dir+'/checkpoint.pth.tar')
     if is_best:
         shutil.copyfile(out_dir+'/checkpoint.pth.tar', out_dir+'/model_best.pth.tar')

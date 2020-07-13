@@ -132,9 +132,9 @@ def customize_data(data_raw):
         data_custom = data_custom[data_custom['icsd_ids'] != '[]']
 
     # get rid of extreme volumes
-    if True:
+    if False:
         data_custom = data_custom[data_custom['volume'] > 100]
-        data_custom = data_custom[data_custom['volume'] < 1500]
+        data_custom = data_custom[data_custom['volume'] < 800]
 
     # get rid of rare elements
     if True:
@@ -143,7 +143,7 @@ def customize_data(data_raw):
         for entry in data_custom['elements']:
             for elem in ast.literal_eval(entry):
                 elem_dict[elem] += 1
-        rare_dict = {key: val for key, val in elem_dict.items() if val < 100}
+        rare_dict = {key: val for key, val in elem_dict.items() if val < 60}
         print('>> Rare elements: ')
         print(rare_dict)
         rare_elements = set(rare_dict.keys())
