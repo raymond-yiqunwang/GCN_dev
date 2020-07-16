@@ -215,6 +215,13 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
         else:
             target_normed = target.view(-1).long()
 
+        if args.cuda:
+            features[0] = features[0].cuda()
+            features[1] = features[1].cuda()
+            features[2] = features[2].cuda()
+            features[3] = [feat.cuda() for feat in features[3]]
+            target_normed = target_normed.cuda()
+
         # compute output
         output = model(features[0], features[1], features[2], features[3])
         loss = criterion(output, target_normed)
@@ -411,8 +418,8 @@ def mae(prediction, target):
 
 
 def class_eval(prediction, target):
-    prediction = np.exp(prediction.detach().numpy())
-    target = target.detach().numpy()
+    prediction = np.exp(prediction.cpu().detach().numpy())
+    target = target.cpu().detach().numpy()
     pred_label = np.argmax(prediction, axis=1)
     target_label = np.squeeze(target)
     if prediction.shape[1] == 2:
