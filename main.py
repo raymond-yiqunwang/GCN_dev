@@ -28,6 +28,8 @@ parser.add_argument('--task', choices=['regression', 'classification'],
                     'classification task (default: classification)')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
+parser.add_argument('--gpu-id', default=0, type=int, metavar='GPUID',
+                    help='GPU ID (default: 0)')
 parser.add_argument('--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
@@ -112,9 +114,11 @@ def main():
     trainable_params = sum(p.numel() for p in model.parameters()
                            if p.requires_grad)
     print('=> number of trainable model parameters: {:d}'.format(trainable_params))
+
     if args.cuda:
-        model.cuda()
         print('running on GPU..')
+        with torch.cuda.device(args.gpu_id):
+            model = model.cuda()
     else:
         print('running on CPU..')
 
@@ -225,13 +229,13 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
         else:
             target_normed = normalizer.norm(target)
 
-        # transfer to GPU
         if args.cuda:
-            features[0] = features[0].cuda()
-            features[1] = features[1].cuda()
-            features[2] = features[2].cuda()
-            features[3] = [feat.cuda() for feat in features[3]]
-            target_normed = target_normed.cuda()
+            with torch.cuda.device(args.gpu_id):
+                features[0] = features[0].cuda()
+                features[1] = features[1].cuda()
+                features[2] = features[2].cuda()
+                features[3] = [feat.cuda() for feat in features[3]]
+                target_normed = target_normed.cuda()
 
         # compute output
         output = model(features[0], features[1], features[2], features[3])
@@ -292,7 +296,7 @@ def train(train_loader, model, criterion, optimizer, epoch, normalizer, writer):
                             running_loss / args.print_freq,
                             epoch * len(train_loader) + idx)
             running_loss = 0.0
-    
+
 
 def validate(val_loader, model, criterion, epoch, normalizer, writer, test_mode=False):
     batch_time = AverageMeter()
@@ -322,13 +326,13 @@ def validate(val_loader, model, criterion, epoch, normalizer, writer, test_mode=
             else:
                 target_normed = normalizer.norm(target)
         
-            # transfer to GPU
             if args.cuda:
-                features[0] = features[0].cuda()
-                features[1] = features[1].cuda()
-                features[2] = features[2].cuda()
-                features[3] = [feat.cuda() for feat in features[3]]
-                target_normed = target_normed.cuda()
+                with torch.cuda.device(args.gpu_id):
+                    features[0] = features[0].cuda()
+                    features[1] = features[1].cuda()
+                    features[2] = features[2].cuda()
+                    features[3] = [feat.cuda() for feat in features[3]]
+                    target_normed = target_normed.cuda()
             
             # compute output
             output = model(features[0], features[1], features[2], features[3])
