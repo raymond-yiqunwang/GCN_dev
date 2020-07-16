@@ -101,7 +101,7 @@ def show_statistics(data, plot=False):
                      e_above_hull.std(), e_above_hull.min(), e_above_hull.max()))
 
     # band gap TODO determine threshold
-    gap_threshold = 1E-3
+    gap_threshold = 1E-8
     metals = data[data['band_gap'] <= gap_threshold]['band_gap']
     insulators = data[data['band_gap'] > gap_threshold]['band_gap']
     if plot:
@@ -138,8 +138,8 @@ def customize_data(data_raw):
 
     # get rid of extreme volumes
     if False:
-        data_custom = data_custom[data_custom['volume'] > 100]
-        data_custom = data_custom[data_custom['volume'] < 800]
+        data_custom = data_custom[data_custom['volume'] > 300]
+        data_custom = data_custom[data_custom['volume'] < 400]
 
     # get rid of rare elements
     if True:
