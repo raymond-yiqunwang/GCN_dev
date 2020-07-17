@@ -32,7 +32,7 @@ parser.add_argument('--gpu-id', default=0, type=int, metavar='GPUID',
                     help='GPU ID (default: 0)')
 parser.add_argument('--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=2, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run (default: 100)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -41,7 +41,7 @@ parser.add_argument('--batch-size', default=64, type=int,
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
                     '0.01)')
-parser.add_argument('--lr-milestones', default=[1], nargs='+', type=int,
+parser.add_argument('--lr-milestones', default=[30, 60], nargs='+', type=int,
                     metavar='N', help='milestones for scheduler (default: '
                     '[30, 60])')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -62,9 +62,9 @@ parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
                     help='choose an optimizer, SGD or Adam, (default: SGD)')
 parser.add_argument('--atom-fea-len', default=64, type=int, metavar='N',
                     help='number of hidden atom features in conv layers')
-parser.add_argument('--h-fea-len', default=128, type=int, metavar='N',
+parser.add_argument('--h-fea-len', default=32, type=int, metavar='N',
                     help='number of hidden features after pooling')
-parser.add_argument('--n-conv', default=3, type=int, metavar='N',
+parser.add_argument('--n-conv', default=4, type=int, metavar='N',
                     help='number of conv layers')
 parser.add_argument('--n-h', default=1, type=int, metavar='N',
                     help='number of hidden layers after pooling')
