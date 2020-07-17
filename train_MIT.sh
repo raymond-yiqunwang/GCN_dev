@@ -2,7 +2,7 @@ python main.py \
     --root data_gen/data/ \
     --task classification \
     --target MIT \
-    --resume pre-trained/semi_metal_classifier.pth.tar \
+    --resume best_models/semi_metal_classifier.pth.tar \
     --atom-fea-len 64 \
     --h-fea-len 32 \
     --n-conv 4 \

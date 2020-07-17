@@ -32,8 +32,8 @@ parser.add_argument('--gpu-id', default=0, type=int, metavar='GPUID',
                     help='GPU ID (default: 0)')
 parser.add_argument('--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
-                    help='number of total epochs to run (default: 100)')
+parser.add_argument('--epochs', default=50, type=int, metavar='N',
+                    help='number of total epochs to run (default: 50)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--batch-size', default=64, type=int,
@@ -41,7 +41,7 @@ parser.add_argument('--batch-size', default=64, type=int,
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
                     '0.01)')
-parser.add_argument('--lr-milestones', default=[30, 60], nargs='+', type=int,
+parser.add_argument('--lr-milestones', default=[20, 40], nargs='+', type=int,
                     metavar='N', help='milestones for scheduler (default: '
                     '[30, 60])')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -106,6 +106,7 @@ def main():
     # build model
     structures, _, _ = dataset[0]
     orig_atom_fea_len = structures[0].shape[-1]
+    print(orig_atom_fea_len)
     nbr_fea_len = structures[1].shape[-1]
     model = CrystalGraphConvNet(orig_atom_fea_len, nbr_fea_len,
                                 atom_fea_len=args.atom_fea_len,

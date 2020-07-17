@@ -50,7 +50,6 @@ def get_train_val_test_loader(dataset, collate_fn=default_collate,
     """
     total_size = len(dataset)
     indices = list(range(total_size))
-    random.shuffle(indices)
     train_split = int(np.floor(total_size * train_ratio))
     train_sampler = SubsetRandomSampler(indices[:train_split])
     val_split = train_split + int(np.floor(total_size * val_ratio))
