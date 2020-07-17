@@ -18,7 +18,7 @@ from cgcnn.model import CrystalGraphConvNet
 from cgcnn.data import CIFData, collate_pool, get_train_val_test_loader
 
 parser = argparse.ArgumentParser(description='Crystal Graph Convolutional Neural Networks')
-parser.add_argument('--root', default='./data', metavar='DATA_ROOT', 
+parser.add_argument('--root', default='data_gen/data', metavar='DATA_ROOT', 
                     help='path to data root dir')
 parser.add_argument('--target', default='MIT', metavar='TARGET_PROPERTY',
                     help="target property ('MIT', 'band_gap', 'energy_per_atom', \
@@ -32,16 +32,16 @@ parser.add_argument('--gpu-id', default=0, type=int, metavar='GPUID',
                     help='GPU ID (default: 0)')
 parser.add_argument('--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+parser.add_argument('--epochs', default=2, type=int, metavar='N',
                     help='number of total epochs to run (default: 100)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--batch-size', default=128, type=int,
+parser.add_argument('--batch-size', default=64, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate (default: '
                     '0.01)')
-parser.add_argument('--lr-milestones', default=[30, 60], nargs='+', type=int,
+parser.add_argument('--lr-milestones', default=[1], nargs='+', type=int,
                     metavar='N', help='milestones for scheduler (default: '
                     '[30, 60])')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -71,6 +71,10 @@ parser.add_argument('--n-h', default=1, type=int, metavar='N',
 
 args = parser.parse_args(sys.argv[1:])
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
+# print out args
+print('User defined variables:', flush=True)
+for key, val in vars(args).items():
+    print('  => {:17s}: {}'.format(key, val), flush=True)
 
 if args.task == 'classification':
     best_mae_error = 0.
@@ -81,7 +85,7 @@ def main():
     global args, best_mae_error
 
     # load dataset: (atom_fea, nbr_fea, nbr_fea_idx), target, cif_id
-    dataset = CIFData(os.path.join(args.root, args.target))
+    dataset = CIFData(args.root, args.target)
     collate_fn = collate_pool
     train_loader, val_loader, test_loader = get_train_val_test_loader(
         dataset=dataset, collate_fn=collate_fn, batch_size=args.batch_size,
@@ -95,7 +99,7 @@ def main():
         normalizer.load_state_dict({'mean': 0., 'std': 1.})
     else:
         sample_data_list = [dataset[i] for i in \
-                            sample(range(len(dataset)), 800)]
+                            sample(range(len(dataset)), 1000)]
         _, sample_target, _ = collate_pool(sample_data_list)
         normalizer = Normalizer(sample_target)
 

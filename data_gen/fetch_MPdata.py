@@ -35,7 +35,7 @@ def fetch_materials_data(out_file):
 
 def main():
     # specify IO
-    root_dir = os.path.join(args.root, 'data_raw')
+    root_dir = os.path.join(args.root, 'raw_data')
     if not os.path.exists(root_dir):
         print("{} folder does not exist, making directory..".format(root_dir))
         os.mkdir(root_dir)

@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 import os
-import csv
+import pandas as pd
 import re
 import json
 import functools
@@ -280,16 +280,16 @@ class CIFData(Dataset):
     target: torch.Tensor shape (1, )
     cif_id: str or int
     """
-    def __init__(self, root_dir, max_num_nbr=12, radius=8, dmin=0, step=0.2,
-                 random_seed=123):
+    def __init__(self, root_dir, target, max_num_nbr=12, radius=8,
+                 dmin=0, step=0.2, random_seed=123):
         self.root_dir = root_dir
         self.max_num_nbr, self.radius = max_num_nbr, radius
         assert os.path.exists(root_dir), 'root_dir does not exist!'
         id_prop_file = os.path.join(self.root_dir, 'id_prop.csv')
         assert os.path.exists(id_prop_file), 'id_prop.csv does not exist!'
         with open(id_prop_file) as f:
-            reader = csv.reader(f)
-            self.id_prop_data = [row for row in reader]
+            reader = pd.read_csv(f, header=0, index_col=None)
+            self.id_prop_data = reader[['material_id', target]].values
         random.seed(random_seed)
         random.shuffle(self.id_prop_data)
         atom_init_file = os.path.join(self.root_dir, 'atom_init.json')

@@ -1,7 +1,7 @@
-data/
-gen_data/data_raw/
 *.log
-*/__pycache__/
+test_results.csv
 runs/
 checkpoints/
-test_results.csv
+data_gen/data/
+data_gen/raw_data/
+*/__pycache__/
