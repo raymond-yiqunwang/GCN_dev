@@ -432,6 +432,8 @@ def mae(prediction, target):
     """
     Computes the mean absolute error between prediction and target
     """
+    target = target.detach().cpu()
+    prediction = prediction.detach().cpu()
     return torch.mean(torch.abs(target - prediction))
 
 

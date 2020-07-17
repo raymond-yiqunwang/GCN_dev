@@ -1,6 +1,6 @@
 data/
 gen_data/data_raw/
-job.log
+*.log
 */__pycache__/
 runs/
 checkpoints/
