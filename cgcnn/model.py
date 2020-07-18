@@ -121,7 +121,7 @@ class CrystalGraphConvNet(nn.Module):
             self.fc_out = nn.Linear(h_fea_len, 1)
         if self.classification:
             self.logsoftmax = nn.LogSoftmax()
-            self.dropout = nn.Dropout()
+            self.dropout = nn.Dropout(p=0.25)
 
     def forward(self, atom_fea, nbr_fea, nbr_fea_idx, crystal_atom_idx):
         """

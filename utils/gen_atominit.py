@@ -9,22 +9,22 @@ atom_data2 = atom_data.copy()
 
 # electronegativity
 neg_data = atom_data['electronegativity']
-interval_neg = (neg_data.max() - neg_data.min()) / 10
+interval_neg = (neg_data.max() - neg_data.min()) / 20
 atom_data2['electronegativity'] = ((neg_data-neg_data.min())/interval_neg-1E-8).astype(int)
 
 # covalent radius
 cov_data = atom_data['covalent_radius']
-interval_cov = (cov_data.max() - cov_data.min()) / 10
+interval_cov = (cov_data.max() - cov_data.min()) / 20
 atom_data2['covalent_radius'] = ((cov_data-cov_data.min())/interval_cov-1E-8).astype(int)
 
 # log first ionization energy
 ion_data = atom_data['log_first_ionization_energy']
-interval_ion = (ion_data.max() - ion_data.min()) / 10
+interval_ion = (ion_data.max() - ion_data.min()) / 20
 atom_data2['log_first_ionization_energy'] = ((ion_data-ion_data.min())/interval_ion-1E-8).astype(int)
 
 # electron affinity
 aff_data = atom_data['electron_affinity']
-interval_aff = (aff_data.max() - aff_data.min()) / 10
+interval_aff = (aff_data.max() - aff_data.min()) / 20
 atom_data2['electron_affinity'] = ((aff_data-aff_data.min())/interval_aff-1E-8).astype(int)
 
 # period, size: 9
@@ -33,19 +33,19 @@ period_dummy = pd.get_dummies(atom_data2['period'], prefix='period')
 group_dummy = pd.get_dummies(atom_data2['group'], prefix='group')
 # blocks, size: 4
 block_dummy = pd.get_dummies(atom_data2['block'], prefix='block')
-# electronegativity, size: 10
+# electronegativity, size: 20
 electronegativity_dummy = pd.get_dummies(atom_data2['electronegativity'], 
                                          prefix='electronegativity')
-# covalent radius, size: 10
+# covalent radius, size: 20
 covalent_radius_dummy = pd.get_dummies(atom_data2['covalent_radius'], 
                                        prefix='covalent_radius')
 # valence electrons, size: 16
 valence_electrons_dummy = pd.get_dummies(atom_data2['valence_electrons'],
                                          prefix='valence_electrons')
-# log first ionization energy, size: 10 
+# log first ionization energy, size: 20 
 log_first_ionization_energy_dummy = pd.get_dummies(atom_data2['log_first_ionization_energy'], 
                                                    prefix='log_first_ionization_energy')
-# electron affinity, size: 10
+# electron affinity, size: 20
 electron_affinity_dummy = pd.get_dummies(atom_data2['electron_affinity'], 
                                          prefix='electron_affinity')
 
