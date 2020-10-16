@@ -101,7 +101,7 @@ def show_statistics(data, plot=False):
                      e_above_hull.std(), e_above_hull.min(), e_above_hull.max()))
 
     # band gap TODO determine threshold
-    gap_threshold = 1E-8
+    gap_threshold = 1E-6
     metals = data[data['band_gap'] <= gap_threshold]['band_gap']
     insulators = data[data['band_gap'] > gap_threshold]['band_gap']
     if plot:
@@ -133,7 +133,7 @@ def customize_data(raw_data):
         data_custom = data_custom[data_custom['warnings'] == '[]']
 
     # only take crystals in ICSD
-    if True:
+    if False:
         data_custom = data_custom[data_custom['icsd_ids'] != '[]']
 
     # get rid of extreme volumes

@@ -23,6 +23,7 @@ parser.add_argument('--cifpath', help='path to the directory of CIF files.',
 parser.add_argument('--task', choices=['regression', 'classification'],
                     default='classification', help='complete a regression or '
                     'classification task (default: classification)')
+parser.add_argument('--target')
 parser.add_argument('-b', '--batch-size', default=64, type=int,
                     metavar='N', help='mini-batch size (default: 64)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -55,7 +56,7 @@ def main():
     global args, model_args, best_mae_error
 
     # load data
-    dataset = CIFData(args.cifpath)
+    dataset = CIFData(args.cifpath, args.target)
     collate_fn = collate_pool
     test_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True,
                              num_workers=args.workers, collate_fn=collate_fn,
